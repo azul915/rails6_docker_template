@@ -1,6 +1,13 @@
 # Docker + Rails6 + MySQL8.0
 
-## 手順
+## シェルによる手順
+- ※シェルは`origin/init`にて作成中
+```sh
+$ sh init.sh {project_name}
+
+# ex) sh init.sh portfolio
+```
+## 手作業の手順
 ### 1. Dockefileを元にしてdocker-compose.ymlで新たなコンテナイメージを作る
 `docker-compose build` の実行
 ### 2. railsのWebサーバーコンテナとMySQLのDBサーバーコンテナを作る
