@@ -1,7 +1,7 @@
 # Docker + Rails6 + MySQL8.0
 
 ## シェルによる手順
-- ※シェルは`origin/init`にて作成中
+- ※作成中
 ```sh
 $ sh init.sh {project_name}
 
