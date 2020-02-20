@@ -1,5 +1,10 @@
 FROM ruby:2.7.0
 
+ENV LANG C.UTF-8
+ENV APP_ROOT /usr/src
+
+WORKDIR $APP_ROOT
+
 RUN set -ex && \
     apt-get update -qq && \
     apt-get install -y sudo && \
@@ -14,11 +19,6 @@ RUN set -ex && \
     apt-get install -y yarn && \
     : "Install rails6.X latest version" && \
     gem install rails --version="~>6.0.0"
-
-ENV LANG C.UTF-8
-ENV APP_ROOT /usr/src
-
-WORKDIR $APP_ROOT
 
 # TODO: プロジェクトルートに空のGemfileとGemfile.lockを置いてbundle installできるか試す
 # MEMO: docker exec -it rails_web /bin/bash
