@@ -118,7 +118,7 @@ root@2cd4872e0928:/usr/src# rails new {project_name} --database=mysql
 - `rails db:create`でDBが作成される
 
 ```
-root@2cd4872e0928:/usr/src# rails db:create
+root@2cd4872e0928:/usr/src/{project_name}# rails db:create
 
 => /usr/local/bundle/gems/actionpack-6.0.2.1/lib/action_dispatch/middleware/stack.rb:37: warning: Using the last argument as keyword parameters is deprecated; maybe ** should be added to the call
    /usr/local/bundle/gems/actionpack-6.0.2.1/lib/action_dispatch/middleware/static.rb:110: warning: The called method `initialize' is defined here
