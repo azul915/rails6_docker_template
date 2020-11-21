@@ -36,28 +36,36 @@ fi
 echo -e "delete all directories and files except init.sh and README.md\n"
 ls | grep -v -E 'init.sh|README.md' | xargs rm -rf
 
+set -ex
+
 echo -e "start!!\n"
+
+app_root="/usr/src"
+
 echo -e "make a Dockefile for rails container under ./docker\n"
-cat <<'EOF' > web.dockerfile
+cat <<EOF > web.dockerfile
 FROM ruby:2.7.0
 
 ENV LANG C.UTF-8
-ENV APP_ROOT /usr/src
 ENV TZ Asia/Tokyo
 
-WORKDIR $APP_ROOT
+WORKDIR $app_root
+RUN sed -i 's@archive.ubuntu.com@ftp.jaist.ac.jp/pub/Linux@g' /etc/apt/sources.list
 RUN set -ex && \
     apt-get update -qq && \
-    apt-get install -y sudo && \
+    apt-get install -y --no-install-recommends sudo && \
     : "Install node.js" && \
     curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash - && \
     apt-get update -qq && \
-    apt-get install -y nodejs && \
+    apt-get install -y --no-install-recommends nodejs && \
     : "Install yarn" && \
     curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add - && \
     echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list && \
     apt-get update -qq && \
-    apt-get install -y yarn && \
+    apt-get install -y --no-install-recommends yarn && \
+    : "Cleaning..." && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
     : "Install rails6.X latest version" && \
     gem install rails --version="~>6.0.0"
 EOF
@@ -80,20 +88,24 @@ default-character-set=utf8mb4
 EOF
 mv charset.cnf ./mysql-confd
 
-cat <<EOF > mysql.cnf
+cat <<EOF > my.cnf
 [mysqld]
 default_authentication_plugin=mysql_native_password
 EOF
-mv mysql.cnf ./mysql-confd
+mv my.cnf ./mysql-confd
 
 echo -e "make a Dockerfile for mysql container under ./docker\n"
 cat <<EOF > db.dockerfile
 FROM mysql:8.0
 
 COPY ./mysql-confd/locale.gen /etc/locale.gen
+RUN sed -i 's@archive.ubuntu.com@ftp.jaist.ac.jp/pub/Linux@g' /etc/apt/sources.list
 RUN set -ex && \
     apt-get update -qq && \
-    apt-get install -y locales && \
+    : "Install locales" && \
+    apt-get install -y --no-install-recommends locales && \
+    : "Cleaning..." && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     locale-gen ja_JP.UTF-8
 ENV LC_ALL ja_JP.UTF-8
@@ -116,14 +128,15 @@ services:
       TZ: 'Asia/Tokyo'
     volumes:
       - ./mysql:/var/lib/mysql
-      - ./mysql-confd:/etc/mysql/conf.d
+      - ./mysql-confd/my.cnf:/etc/mysql/conf.d/my.cnf
+      - ./mysql-confd/charset.cnf:/etc/mysql/conf.d/charset.cnf
   web:
     build:
       context: .
       dockerfile: ./docker/web.dockerfile
     container_name: rails_web
     volumes:
-      - ./$project_name/:/usr/src/$project_name/
+      - ./$project_name/:$app_root/$project_name/
     ports:
       - "3000:3000"
     environment:
@@ -136,7 +149,7 @@ services:
 EOF
 
 echo -e "docker-compose build\n"
-docker-compose build
+docker-compose build --no-cache
 
 echo -e "docker-compose up -d\n"
 docker-compose up -d
@@ -145,15 +158,15 @@ echo -e "rails new $project_name --database=mysql\n"
 docker-compose exec web rails new $project_name --database=mysql
 
 echo Rewrite ./$project_name/config/database.yml for connection of MySQL container
-sed -i -e "s/password:/password: $root_password/g" ./$project_name/config/database.yml
-sed -i -e 's/host: localhost/host: db/g' ./$project_name/config/database.yml
+docker-compose exec web /bin/sh -c "sed -ie 's/password:/password: $root_password/g' $app_root/$project_name/config/database.yml"
+docker-compose exec web /bin/sh -c "sed -ie 's/host: localhost/host: db/g' $app_root/$project_name/config/database.yml"
 
 echo -e "rails db:create\n"
 docker-compose exec web /bin/sh -c \
-  "cd /usr/src/$project_name && \
+  "cd $app_root/$project_name && \
   rails db:create"
 
 echo -e "rails server\n"
 docker-compose exec web /bin/sh -c \
-  "cd /usr/src/$project_name && \
+  "cd $app_root/$project_name && \
   rails server"

@@ -271,3 +271,7 @@ Puma starting in single mode...
 * Listening on tcp://0.0.0.0:3000
 Use Ctrl-C to stop
 ```
+
+## 備考
+- `RUN sed -i 's@archive.ubuntu.com@ftp.jaist.ac.jp/pub/Linux@g' /etc/apt/sources.list`
+   - 高速化するために`apt-get`の利用リポジトリをJAISTのMirrorを使うようにしている。

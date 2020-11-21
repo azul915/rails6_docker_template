@@ -12,7 +12,8 @@ services:
       TZ: 'Asia/Tokyo'
     volumes:
       - ./mysql:/var/lib/mysql
-      - ./mysql-confd:/etc/mysql/conf.d
+      - ./mysql-confd/my.cnf:/etc/mysql/conf.d/my.cnf
+      - ./mysql-confd/charset.cnf:/etc/mysql/conf.d/charset.cnf
   web:
     build:
       context: .
