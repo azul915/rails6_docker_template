@@ -2,9 +2,9 @@ FROM ruby:2.7.0
 
 ENV LANG C.UTF-8
 ENV APP_ROOT /usr/src
+ENV TZ Asia/Tokyo
 
 WORKDIR $APP_ROOT
-
 RUN set -ex && \
     apt-get update -qq && \
     apt-get install -y sudo && \
@@ -19,12 +19,3 @@ RUN set -ex && \
     apt-get install -y yarn && \
     : "Install rails6.X latest version" && \
     gem install rails --version="~>6.0.0"
-
-# TODO: プロジェクトルートに空のGemfileとGemfile.lockを置いてbundle installできるか試す
-# MEMO: docker exec -it rails_web /bin/bash
-# MEMO: rails new [project_name] --force --database=mysql --skip-bundle
-# MEMO: ./config/database.ymlを password: root, host: db に書き換え
-# ADD Gemfile $APP_ROOT/Gemfile
-# ADD Gemfile.lock $APP_ROOT/Gemfile.lock
-
-# RUN bundle install

@@ -1,21 +1,25 @@
-version: '3'
+version: '3.7'
 services:
   db:
-    image: mysql:8.0
+    build:
+      context: .
+      dockerfile: ./docker/db.dockerfile
     container_name: rails_mysql
     ports:
       - "3306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: password
       TZ: 'Asia/Tokyo'
-    command: mysqld --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_ja_0900_as_cs
-
-  web:
-    build: .
-    container_name: rails_web
     volumes:
-      - .:/usr/src
+      - ./mysql:/var/lib/mysql
+      - ./mysql-confd:/etc/mysql/conf.d
+  web:
+    build:
+      context: .
+      dockerfile: ./docker/web.dockerfile
+    container_name: rails_web
+    # volumes:
+    #   - ./sample/:/usr/src/sample/
     ports:
       - "3000:3000"
     environment:

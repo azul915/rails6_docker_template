@@ -9,28 +9,24 @@ $ /bin/bash init.sh -p {project_name} -r {root_password}
 ```
 
 ## 手作業の手順
-### 1. Dockefileを元にしてdocker-compose.ymlで新たなコンテナイメージを作る
+### 1. Dockerfileを元にしてdocker-compose.ymlで新たなコンテナイメージを作る
 `docker-compose build` の実行
 ### 2. railsのWebサーバーコンテナとMySQLのDBサーバーコンテナを作る
 1. `docker-compose up -d` の実行
 2. `docker ps -a` の実行 で **STATUS**が**Up**になっていることを確認する
 ```sh
 # 実行例
-CONTAINER ID        IMAGE                  COMMAND                  CREATED             STATUS                  PORTS                               NAMES
-2cd4872e0928        rails_sample_web       "irb"                    16 minutes ago      Up 16 minutes           0.0.0.0:3000->3000/tcp              rails_web
-d3922d633a50        mysql:8.0              "docker-entrypoint.s…"   16 minutes ago      Up 16 minutes           0.0.0.0:3306->3306/tcp, 33060/tcp   rails_mysql
+CONTAINER ID        IMAGE                        COMMAND                  CREATED             STATUS                       PORTS                                NAMES
+91f279ffce2c        rails6_docker_template_web   "irb"                    2 minutes ago       Up 2 minutes                 0.0.0.0:3000->3000/tcp               rails_web
+e90ff7416e08        rails6_docker_template_db    "docker-entrypoint.s…"   2 minutes ago       Up 2 minutes                 0.0.0.0:3306->3306/tcp, 33060/tcp    rails_mysql
 ```
 #### 補足
 `docker-compose logs`で、
-`webサーバーコンテナ`（以下、**Webコンテナ**もしくは、**rails_web**）, 
+`アプリサーバーコンテナ`（以下、**Webコンテナ**もしくは、**rails_web**）, 
 DBサーバーコンテナ（以下、**DBコンテナ**もしくは、**rails_mysql**）が
 正常に起動できているか等の確認ができる
 
-### 3. Webサーバーに入る
-`docker exec -it rails_web /bin/bash` あるいは docker-compose.ymlがあるディレクトリで`docker-compose exec web /bin/bash` の実行で、
-**rails_web**というコンテナ名のサーバーに入る
-
-### 4. Railsチュートリアルにしたがって、新しいプロジェクトを作る
+### 3. Railsチュートリアルにしたがって、新しいプロジェクトを作る
 ここでは、[Railsガイト/Railsをはじめよう](https://railsguides.jp/getting_started.html) にしたがって作るものとする。
 
 以下は、**Railsガイト/Railsをはじめよう** の **3.1 Railsのインストール** にしたがった一例
@@ -78,29 +74,53 @@ root@a19247e0a147:/usr/src# rails --version
 ```
 
 #### プロジェクトの作成
+1. rails newしてプロジェクトを作成する。
+- ただし、docker-composeを使って、`rails new {project_name}`のコマンドを与える。
+- また、初期状態からMySQLを使っていくので、オプションをつける
 
 ```
-root@2cd4872e0928:/usr/src# rails new {project_name}
-
-ex)
-root@2cd4872e0928:/usr/src# rails new blog とか
-root@2cd4872e0928:/usr/src# rails new portfolio など
-```
-- ただし、初期状態からMySQLを使っていくので、オプションをつける
-- rails newコマンドを以下のオプションつきで実行
-
-```
-root@2cd4872e0928:/usr/src# rails new {project_name} --database=mysql
+docker-compose exec web rails new {project_name} --database=mysql
 ```
 - **--database=mysql**：
   - 取り扱うDBをMySQLにする
   - オプションなしの場合、SQLiteを使うものとしてプロジェクトが作られる
 - 他オプションについては、[参考 Railsドキュメント/アプリケーションの作成](https://railsdoc.com/rails) を参照
 
-#### データベースの設定
-- VSCode等のエディタ等で見ると、Webコンテナ内で`rails new` して作成したファイルが、{project_name}のフォルダ名で外部にも作成されている
-- {project_name}/config/database.ymlをVSCode等のエディタ等で開く
-- **database.yml**の**password**と**host**を以下のように修正
+#### rails newしたコンテナ内のプロジェクトをプロジェクトをローカルに一度コピーする
+1. docker cpでコンテナ内のフォルダをローカルにコピーする
+```
+docker cp rails_web:/usr/src/{project_name} ./
+```
+
+#### 再マウントする
+1. `docker-compose down -v`して、一度コンテナを破棄する。
+```
+docker-compose down -v
+```
+2. docker-compose.ymlのservice.web.volumesのコメントアウトを外して、{project_name}をrails new {project_name} --database=mysqlした時の値で書き換える
+- 例えば、`rails new portfolio --database=mysql` としたなら以下のように書き換える
+```yaml
+   web:
+      build:
+         context: .
+         dockerfile: ./docker/web.dockerfile
+      container_name: rails_web
+      volumes:
+         - ./portfolio/:/usr/src/portfolio/
+```
+3. `docker-compose up -d`する
+- docker-composeで再度起動を行うことで、docker-compose.ymlを書き換えた内容が反映される。
+- これでローカルとコンテナが同期された状態になる。
+```
+$ docker-compose up -d
+Creating network "rails6_docker_template_default" with the default driver
+Creating rails_mysql ... done
+Creating rails_web   ... done
+```
+
+#### 5. データベースの設定を書き換える
+1. `{project_name}/config/database.yml`をVSCode等のエディタ等で開く
+2. **database.yml**の**password**と**host**を以下のように修正する
 
 ```yaml
   # before(rails newによる生成直後)
@@ -115,9 +135,17 @@ root@2cd4872e0928:/usr/src# rails new {project_name} --database=mysql
   - **password** ： 後の手順で、DBを作成するがその時のrootユーザーのパスワードが必要
   - **host** ： Dockerで作ったMySQLとのDBコンテナとWebコンテナが通信する必要があるため、docker-compose.ymlのservice名「db」で指定する
 
-#### データベースを作成する
-- `rails db:create`でDBが作成される
+#### 6. データベースを作成する
+1. 再度、**rails_web**コンテナに入る。
+```
+docker exec -it rails_web /bin/bash
+```
 
+あるいは、docker-compose.ymlがあるディレクトリで
+```
+docker-compose exec web /bin/bash
+```
+3. `rails db:create`する。
 ```
 root@2cd4872e0928:/usr/src/{project_name}# rails db:create
 
@@ -126,9 +154,20 @@ root@2cd4872e0928:/usr/src/{project_name}# rails db:create
    Created database '{project_name}_development'
    Created database '{project_name}_test'
 ```
+(失敗する時は`bundle install`してGemfileによって依存解決をする。)
+```
+root@2732e9b3ac52:/usr/src/{project_name}# bundle install
 
-##### 補足
-- DBコンテナに入って、DBが作成されているか確認する
+=> The dependency tzinfo-data (>= 0) will be unused by any of the platforms Bundler is installing for. Bundler is installing for ruby but the dependency is only for x86-mingw32, x86-mswin32, x64-mingw32, java. To add those platforms to the bundle, run `bundle lock --add-platform x86-mingw32 x86-mswin32 x64-mingw32 java`.
+Fetching gem metadata from https://rubygems.org/............
+Using rake 13.0.1
+(割愛)
+Fetching webpacker 4.3.0
+Installing webpacker 4.3.0
+Bundle complete! 17 Gemfile dependencies, 74 gems now installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+```
+##### 補足: データベースが作れているかDBコンテナに入って確認する
 
 1. まず、Webコンテナから出る
 ```
@@ -136,9 +175,14 @@ root@2cd4872e0928:/usr/src# exit
 ```
 2. DBコンテナに入る
 ```
-$ docker exec -it rails_mysql /bin/bash
+docker exec -it rails_mysql /bin/bash
+```
+あるいは
+```
+docker-compose exec db /bin/bash
 ```
 3. MySQLのログインコマンドでMySQLとの対話シェルを起動
+
 ```
 root@58a6d02a3467:/# mysql -u root -p
 
@@ -159,7 +203,9 @@ root@58a6d02a3467:/# mysql -u root -p
     
     mysql>
 ```
+
 4. データベースの一覧を見る
+
 ```
 mysql>show databases;
 
@@ -185,12 +231,12 @@ mysql>exit;
 ```
 root@58a6d02a3467:/# exit
 ```
-7. （Webコンテナに入る）
+7. （再度、Webコンテナに入り直す）
 ```
 $ docker exec -it rails_web /bin/bash
 ```
 
-### 5. RailsのアプリサーバーをWebコンテナの上で起動する
+### 7. RailsのアプリサーバーをWebコンテナの上で起動する
 1. `rails new`で作ったプロジェクトのフォルダ内（以下、「ディレクトリ」または「プロジェクト配下」）に移動
 
 ```
@@ -203,7 +249,7 @@ root@a19247e0a147:/usr/src# cd portfolio
 2. `rails server`により、Webコンテナ内でアプリサーバーを起動
 - [参考 Railsドキュメント/ローカルでサーバを起動](https://railsdoc.com/rails#rails_server)
 ```
-root@a19247e0a147:/usr/src/portfolio# rails server（rails sでもよい）
+root@a19247e0a147:/usr/src/{project_name} # rails server（rails sでもよい）
 ```
 
 3. サーバーの起動を待ち、ブラウザから初期画面にアクセスする
