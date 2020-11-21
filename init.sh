@@ -1,18 +1,55 @@
 #!/bin/bash
 
-echo "docker pull ruby;2.7.0"
-docker pull ruby:2.7.0
+function usage {
+  cat <<'EOM'
+Usage: /bin/bash init.sh  [OPTIONS] [VALUE]
+Options:
+  -h            Display help
+  -p  [VALUE]   Give a project's name[required]
+  -r  [VALUE]   Define a mysql root password[required]
+EOM
+  exit 1
+}
 
-echo "docker pull mysql:8.0"
-docker pull mysql:8.0
+while getopts ":p:r:h" optKey; do
+  case "$optKey" in
+    p)
+      project_name=$OPTARG
+      ;;
+    r)
+      root_password=$OPTARG
+      ;;
+    '-h'|'--help'|* )
+      usage
+      ;;
+  esac
+done
+if [ -z $project_name ] || [ -z $root_password ]; then
+  echo -e "you must define project name and mysql root password.\n"
+  usage
+  exit 1
+fi
 
-echo "docker images"
-docker images
+echo -e "docker-compose down -v\n"
+docker-compose down -v
+echo -e "delete all directories and files except init.sh and README.md\n"
+ls | grep -v -E 'init.sh|README.md' | xargs rm -rf
 
-echo "make Dockefile"
-cat <<'EOF' > Dockerfile
+# # # echo docker pull ruby:2.7.0
+# # # docker pull ruby:2.7.0
+
+# # # echo docker pull mysql:8.0
+# # # docker pull mysql:8.0
+
+echo -e "make a Dockefile for rails container under ./docker\n"
+cat <<'EOF' > web.dockerfile
 FROM ruby:2.7.0
 
+ENV LANG C.UTF-8
+ENV APP_ROOT /usr/src
+ENV TZ Asia/Tokyo
+
+WORKDIR $APP_ROOT
 RUN set -ex && \
     apt-get update -qq && \
     apt-get install -y sudo && \
@@ -27,17 +64,12 @@ RUN set -ex && \
     apt-get install -y yarn && \
     : "Install rails6.X latest version" && \
     gem install rails --version="~>6.0.0"
-
-ENV LANG C.UTF-8
-ENV APP_ROOT /usr/src
-
-WORKDIR $APP_ROOT
-
 EOF
+mkdir ./docker && mv web.dockerfile ./docker/
 
-echo "make docker-compose.yml"
-cat <<'EOF' > docker-compose.yml
-version: '3'
+echo -e "make a docker-compose.yml\n"
+cat <<EOF > docker-compose.yml
+version: '3.7'
 services:
   db:
     image: mysql:8.0
@@ -45,16 +77,17 @@ services:
     ports:
       - "3306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: $root_password
       TZ: 'Asia/Tokyo'
     command: mysqld --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_ja_0900_as_cs
 
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: ./docker/web.dockerfile
     container_name: rails_web
     volumes:
-      - .:/usr/src
+      - ./$project_name/:/usr/src/$project_name/
     ports:
       - "3000:3000"
     environment:
@@ -64,25 +97,21 @@ services:
     tty: true
     links:
       - db
-
 EOF
 
-echo "Compose-Up WebContainer and DBContainer."
-echo "docker-compose up -d"
+echo -e "docker-compose up -d\n"
 docker-compose up -d
 
-echo "Create a new project."
-echo "docker-compose run web rails new $1 --datebase=mysql"
-docker-compose run web rails new project --datebase=mysql
+echo -e "docker-compose exec web rails new $project_name --database=mysql\n"
+docker-compose exec web rails new $project_name --database=mysql --skip-webpack-install
 
-echo "Rewrite ./config/database.yml for connection of MySQL container"
-sed -i -e 's/password:$/password: password/g' $1/config/database.yml
-sed -i -e 's/host: localhost$/host: db/g' $1/config/database.yml
+echo Rewrite ./$project_name/config/database.yml for connection of MySQL container
+sed -i -e "s/password:/password: $root_password/g" ./$project_name/config/database.yml
+sed -i -e 's/host: localhost/host: db/g' ./$project_name/config/database.yml
 
-echo "Create a Database."
-echo "rails db:crate"
-docker-compose run web rails db:create --workdir="/usr/src/$1"
+echo rails db:create
+docker-compose exec web /bin/sh rails db:create --workdir=/usr/src/$project_name
 
-echo "Start rails server."
-echo "docker-compose run web rails server"
-docker-compose run web rails server --workdir="/usr/src/$1"
+
+# echo docker-compose run web rails server
+# docker-compose run web rails server --workdir="/usr/src/$1"

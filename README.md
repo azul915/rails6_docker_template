@@ -1,12 +1,13 @@
-# Docker + Rails6 + MySQL8.0
+# docker-compose + Rails6 + MySQL8.0
 
 ## シェルによる手順
-- ※作成中
-```sh
-$ sh init.sh {project_name}
+- `git clone`したときに置いている、Dockerfileとdocker-compose.ymlは消してOK
 
-# ex) sh init.sh portfolio
+```shell
+# e.g) /bin/bash /path/to/init.sh -p portfolio -r password
+$ /bin/bash init.sh -p {project_name} -r {root_password}
 ```
+
 ## 手作業の手順
 ### 1. Dockefileを元にしてdocker-compose.ymlで新たなコンテナイメージを作る
 `docker-compose build` の実行
@@ -26,7 +27,7 @@ DBサーバーコンテナ（以下、**DBコンテナ**もしくは、**rails_m
 正常に起動できているか等の確認ができる
 
 ### 3. Webサーバーに入る
-`docker exec -it rails_web /bin/bash` の実行で、
+`docker exec -it rails_web /bin/bash` あるいは docker-compose.ymlがあるディレクトリで`docker-compose exec web /bin/bash` の実行で、
 **rails_web**というコンテナ名のサーバーに入る
 
 ### 4. Railsチュートリアルにしたがって、新しいプロジェクトを作る
@@ -82,7 +83,7 @@ root@a19247e0a147:/usr/src# rails --version
 root@2cd4872e0928:/usr/src# rails new {project_name}
 
 ex)
-root@2cd4872e0928:/usr/src# rail new blog とか
+root@2cd4872e0928:/usr/src# rails new blog とか
 root@2cd4872e0928:/usr/src# rails new portfolio など
 ```
 - ただし、初期状態からMySQLを使っていくので、オプションをつける
