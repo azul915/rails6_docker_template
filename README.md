@@ -275,3 +275,7 @@ Use Ctrl-C to stop
 ## 備考
 - `RUN sed -i 's@archive.ubuntu.com@ftp.jaist.ac.jp/pub/Linux@g' /etc/apt/sources.list`
    - 高速化するために`apt-get`の利用リポジトリをJAISTのMirrorを使うようにしている。
+
+### Infrastructure model
+
+![Infrastructure model](.infragenie/infrastructure_model.png)
